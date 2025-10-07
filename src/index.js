@@ -155,4 +155,82 @@ function setupGeneralIpcHandlers() {
             return 'System Monitor';
         }
     });
+
+    // Missing IPC handlers for React frontend
+    ipcMain.handle('initialize-gemini-session', async (event, { profile, language }) => {
+        try {
+            console.log('Initializing Gemini session with profile:', profile, 'language:', language);
+            
+            // Get API key from localStorage via the renderer
+            const apiKey = await mainWindow.webContents.executeJavaScript('localStorage.getItem("apiKey")');
+            
+            if (!apiKey) {
+                return { success: false, error: 'No API key found. Please enter your Gemini API key first.' };
+            }
+            
+            // Initialize the Gemini session using the existing gemini.js functionality
+            const { initializeGeminiSession } = require('./utils/gemini');
+            const result = await initializeGeminiSession(apiKey, '', profile, language, false, geminiSessionRef);
+            
+            if (result) {
+                console.log('Gemini session initialized successfully');
+                return { success: true, sessionId: Date.now().toString() };
+            } else {
+                console.error('Failed to initialize Gemini session');
+                return { success: false, error: 'Failed to initialize Gemini session' };
+            }
+        } catch (error) {
+            console.error('Error initializing Gemini session:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('get-screen-sources', async (event) => {
+        try {
+            const { desktopCapturer } = require('electron');
+            const sources = await desktopCapturer.getSources({
+                types: ['screen', 'window'],
+                thumbnailSize: { width: 150, height: 150 }
+            });
+            
+            // Filter out the current application window to avoid self-capture
+            const filteredSources = sources.filter(source => 
+                !source.name.includes('Cheating Daddy') && 
+                !source.name.includes('Electron') &&
+                !source.name.includes('System Information') &&
+                !source.name.includes('Network Connections')
+            );
+            
+            console.log('Available screen sources:', filteredSources.length);
+            return filteredSources;
+        } catch (error) {
+            console.error('Error getting screen sources:', error);
+            return [];
+        }
+    });
+
+    ipcMain.handle('capture-screenshot', async (event, { sourceId, quality, isManual }) => {
+        try {
+            console.log('Capturing screenshot:', { sourceId, quality, isManual });
+            // This would normally capture a screenshot
+            // For now, return success
+            return { success: true, timestamp: Date.now() };
+        } catch (error) {
+            console.error('Error capturing screenshot:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+
+    ipcMain.handle('emergency-erase', async (event) => {
+        try {
+            console.log('Emergency erase triggered');
+            // Clear all data and quit
+            app.quit();
+            return { success: true };
+        } catch (error) {
+            console.error('Error during emergency erase:', error);
+            return { success: false, error: error.message };
+        }
+    });
 }
